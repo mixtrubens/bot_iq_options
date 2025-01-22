@@ -1,17 +1,4 @@
-from iqoptionapi.stable_api import IQ_Option
-import time
 
-from iqoptionapi.stable_api import IQ_Option
-import time
-from configobj import ConfigObj
-import json, sys
-from datetime import datetime, timedelta
-from tabulate import tabulate
-from colorama import init, Fore, Back
-from iqoptionapi.constants import ACTIVES
-from collections import Counter
-from itertools import groupby
-from colorama import Fore, Style, init
 from velas import ativos_online
 
 def ativos_binarios(iq):
