@@ -46,11 +46,29 @@ class Catalogador:
                 )
                 index += 1  # Incrementar o índice global
 
-    def executar(self):
-        self.inicia_catalogacao(self.estrategias.mhi_padrao)
-        self.inicia_catalogacao(self.estrategias.mhi_reverso)
+    def menu_interativo(self):
+        while True:
+            print("\nEscolha a estratégia para catalogação:")
+            print("1 - MHI padrão")
+            print("2 - MHI inverso")
+            print("3 - Todas")
+            print("0 - Sair")
 
+            opcao = input("Digite a opção desejada: ")
+
+            if opcao == '1':
+                self.inicia_catalogacao(self.estrategias.mhi_padrao)
+            elif opcao == '2':
+                self.inicia_catalogacao(self.estrategias.mhi_reverso)
+            elif opcao == '3':
+                self.inicia_catalogacao(self.estrategias.mhi_padrao)
+                self.inicia_catalogacao(self.estrategias.mhi_reverso)
+            elif opcao == '0':
+                print("Encerrando o programa...")
+                break
+            else:
+                print("Opção inválida. Por favor, escolha uma opção válida.")
 
 if __name__ == "__main__":
     catalogador = Catalogador()
-    catalogador.executar()
+    catalogador.menu_interativo()
