@@ -3,7 +3,7 @@ import time
 from configobj import ConfigObj
 import json, sys
 from datetime import datetime, timedelta
-from catalogador import catag
+from catalogadorteste import catag
 from tabulate import tabulate
 from colorama import init, Fore, Back
 from iqoptionapi.constants import ACTIVES

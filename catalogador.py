@@ -1,269 +1,56 @@
-from iqoptionapi.stable_api import IQ_Option
-import time
-from configobj import ConfigObj
-import sys
-from datetime import datetime
-from tabulate import tabulate
-from iqoptionapi.constants import ACTIVES
+from estrategias import Estrategias
+from utils import Utils
+from login_iq import login_iq_option
+from ativos_validos import ativos_binarios
+from colorama import Fore, Back, init
 
-def payout(par):
-    profit = API.get_all_profit()
-    all_asset = API.get_all_open_time()
+class Catalogador:
+    def __init__(self):
+        self.iqoption = login_iq_option()
+        self.pares_abertos = ativos_binarios(self.iqoption)
+        self.utils = Utils()
+        self.estrategias = Estrategias()
+        self.tamanho_grupo = 5
 
-    try:
-        if all_asset['binary'][par]['open']:
-            if profit[par]['binary']> 0:
-                binary = round(profit[par]['binary'],2) * 100
-        else:
-            binary  = 0
-    except:
-        binary = 0
+    def inicia_catalogacao(self, estrategia):
+        if estrategia.__name__ == 'mhi_padrao':
+            print('\nEstratégia: MHI padrão')
+        elif estrategia.__name__ == 'mhi_reverso':
+            print('\nEstratégia: MHI reverso')
 
-    try:
-        if all_asset['turbo'][par]['open']:
-            if profit[par]['turbo']> 0:
-                turbo = round(profit[par]['turbo'],2) * 100
-        else:
-            turbo  = 0
-    except:
-        turbo = 0
+        print(f"\n{'#':<3} {'Ativo':<10} {'WINS':<7} {'LOSS':<7} {'Doji':<7} {'Percentual Win':<10}")
+        self.utils.limpar_dados_resultado(self.pares_abertos)
 
-    try:
-        if all_asset['digital'][par]['open']:
-            digital = API.get_digital_payout(par)
-        else:
-            digital  = 0
-    except:
-        digital = 0
+        index = 1  # Inicializar o índice global
+        for j, ativo in enumerate(self.pares_abertos['velas_ativas']):
+            try:
+                ativos_ordenados = estrategia(ativo, j, self.pares_abertos)
+            except Exception as e:
+                print(f"Erro ao processar {ativo}: {e}")
+                continue
 
-    return binary, turbo, digital
-def catag(API):
+            # Ordenar por número de Wins e, em seguida, por % de Wins
+            ativos_ordenados = sorted(
+                ativos_ordenados,
+                key=lambda x: (x['Win'], float(x['Taxa_Win'].strip('%'))),
+                reverse=True
+            )
 
-    ### CRIANDO ARQUIVO DE CONFIGURAÇÃO ####
-    config = ConfigObj('config.txt')
-    
+            # Numerar os ativos ordenados e imprimir
+            for resumo_ativo in ativos_ordenados:
+                ativo_label = resumo_ativo['Ativo']
+                print(
+                    f"{index:<3} {ativo_label:<10} {resumo_ativo['Win']:<7} "
+                    f"{resumo_ativo['Loss']:<7} {resumo_ativo['Doji']:<7} "
+                    f"{resumo_ativo['Taxa_Win']:<10}"
+                )
+                index += 1  # Incrementar o índice global
 
-    pares_abertos = []
+    def executar(self):
+        self.inicia_catalogacao(self.estrategias.mhi_padrao)
+        self.inicia_catalogacao(self.estrategias.mhi_reverso)
 
-    all_asset = API.get_all_open_time()
 
-    for par in all_asset['digital']:
-        if par in ACTIVES:
-            if all_asset['digital'][par]['open']:
-                pares_abertos.append(par)
-
-    for par in all_asset['turbo']:
-        if par in ACTIVES:
-            if all_asset['turbo'][par]['open']:
-                if par not in pares_abertos:
-                    pares_abertos.append(par)
-            
-
-    timeframe = 60
-    qnt_velas  = 600
-
-    global resultado
-    resultado = []
-
-    def mhi():
-        global resultado
-    if pares_abertos:
-        for par in pares_abertos:
-            velas = API.get_candles(par, timeframe,qnt_velas, time.time())
-            doji = 0
-            win = 0
-            loss = 0
-            gale1 = 0
-            gale2 = 0
-
-            for i in range(len(velas)):
-                minutos = float(datetime.fromtimestamp(velas[i]['from']).strftime('%M')[1:])
-
-                if minutos == 5 or minutos== 0:
-                    try:
-                        if i <2:
-                            pass
-                        else:
-
-                            vela1 = 'Verde' if velas[i-3]['open'] < velas[i-3]['close'] else 'Vermelha' if velas[i-3]['open'] > velas[i-3]['close'] else 'Doji'
-                            vela2 = 'Verde' if velas[i-2]['open'] < velas[i-2]['close'] else 'Vermelha' if velas[i-2]['open'] > velas[i-2]['close'] else 'Doji'
-                            vela3 = 'Verde' if velas[i-1]['open'] < velas[i-1]['close'] else 'Vermelha' if velas[i-1]['open'] > velas[i-1]['close'] else 'Doji'
-
-                            entrada1 = 'Verde' if velas[i]['open'] < velas[i]['close'] else 'Vermelha' if velas[i]['open'] > velas[i]['close'] else 'Doji'
-                            entrada2 = 'Verde' if velas[i+1]['open'] < velas[i+1]['close'] else 'Vermelha' if velas[i+1]['open'] > velas[i+1]['close'] else 'Doji'
-                            entrada3 ='Verde' if velas[i+2]['open'] < velas[i+2]['close'] else 'Vermelha' if velas[i+2]['open'] > velas[i+2]['close'] else 'Doji'
-
-                            cores = vela1,vela2,vela3
-
-                            if cores.count('Verde') > cores.count('Vermelha') and cores.count('Doji') == 0 : dir = 'Vermelha'
-                        
-                            if cores.count('Vermelha') > cores.count('Verde') and cores.count('Doji') == 0 : dir = 'Verde'
-
-                            if cores.count('Doji') >0:
-                                doji += 1
-                            else:
-                                if entrada1 == dir:
-                                    win +=1
-                                else:
-                                    if entrada2 == dir:
-                                        gale1 +=1
-                                    else:
-                                        if entrada3 == dir:
-                                            gale2 +=1
-
-                                        else:
-                                            loss +=1
-                    except:
-                        pass
-
-            total_entrada = win + gale1 + gale2 + loss
-            qnt_win = win
-            qnt_gale1 = win + gale1
-            qnt_gale2 = win + gale1 + gale2
-
-            win = round(qnt_win/(total_entrada)*100,2)
-            gale1 = round(qnt_gale1/(total_entrada)*100,2)
-            gale2 = round(qnt_gale2/(total_entrada)*100,2)
-
-            resultado.append(['MHI'] + [par]+ [win] +[gale1] + [gale2])
-
-    def torres():
-        global resultado
-        for par in pares_abertos:
-            velas = API.get_candles(par, timeframe,qnt_velas, time.time())
-            doji = 0
-            win = 0
-            loss = 0
-            gale1 = 0
-            gale2 = 0
-
-            for i in range(len(velas)):
-                minutos = float(datetime.fromtimestamp(velas[i]['from']).strftime('%M')[1:])
-
-                if minutos == 4 or minutos== 9:
-                    try:
-                        if i <2:
-                            pass
-                        else:
-
-                            vela1 = 'Verde' if velas[i-4]['open'] < velas[i-4]['close'] else 'Vermelha' if velas[i-4]['open'] > velas[i-4]['close'] else 'Doji'
-
-                            entrada1 = 'Verde' if velas[i]['open'] < velas[i]['close'] else 'Vermelha' if velas[i]['open'] > velas[i]['close'] else 'Doji'
-                            entrada2 = 'Verde' if velas[i+1]['open'] < velas[i+1]['close'] else 'Vermelha' if velas[i+1]['open'] > velas[i+1]['close'] else 'Doji'
-                            entrada3 ='Verde' if velas[i+2]['open'] < velas[i+2]['close'] else 'Vermelha' if velas[i+2]['open'] > velas[i+2]['close'] else 'Doji'
-
-                            cores = vela1
-
-                            if cores.count('Verde') > cores.count('Vermelha') and cores.count('Doji') == 0 : dir = 'Verde'
-                        
-                            if cores.count('Vermelha') > cores.count('Verde') and cores.count('Doji') == 0 : dir = 'Vermelha'
-
-                            if cores.count('Doji') >0:
-                                doji += 1
-                            else:
-                                if entrada1 == dir:
-                                    win +=1
-                                else:
-                                    if entrada2 == dir:
-                                        gale1 +=1
-                                    else:
-                                        if entrada3 == dir:
-                                            gale2 +=1
-
-                                        else:
-                                            loss +=1
-                    except:
-                        pass
-
-            total_entrada = win + gale1 + gale2 + loss
-            qnt_win = win
-            qnt_gale1 = win + gale1
-            qnt_gale2 = win + gale1 + gale2
-
-            win = round(qnt_win/(total_entrada)*100,2)
-            gale1 = round(qnt_gale1/(total_entrada)*100,2)
-            gale2 = round(qnt_gale2/(total_entrada)*100,2)
-
-            resultado.append(['TORRES GÊMEAS']+[par]+ [win] +[gale1] + [gale2])
-
-    def mhi2():
-        global resultado
-    if pares_abertos:
-        for par in pares_abertos:
-            velas = API.get_candles(par, timeframe,qnt_velas, time.time())
-            doji = 0
-            win = 0
-            loss = 0
-            gale1 = 0
-            gale2 = 0
-
-            for i in range(len(velas)):
-                minutos = float(datetime.fromtimestamp(velas[i]['from']).strftime('%M')[1:])
-
-                if minutos == 5 or minutos== 0:
-                    try:
-                        if i <2:
-                            pass
-                        else:
-
-                            vela1 = 'Verde' if velas[i-3]['open'] < velas[i-3]['close'] else 'Vermelha' if velas[i-3]['open'] > velas[i-3]['close'] else 'Doji'
-                            vela2 = 'Verde' if velas[i-2]['open'] < velas[i-2]['close'] else 'Vermelha' if velas[i-2]['open'] > velas[i-2]['close'] else 'Doji'
-                            vela3 = 'Verde' if velas[i-1]['open'] < velas[i-1]['close'] else 'Vermelha' if velas[i-1]['open'] > velas[i-1]['close'] else 'Doji'
-
-                            entrada1 = 'Verde' if velas[i]['open'] < velas[i]['close'] else 'Vermelha' if velas[i]['open'] > velas[i]['close'] else 'Doji'
-                            entrada2 = 'Verde' if velas[i+1]['open'] < velas[i+1]['close'] else 'Vermelha' if velas[i+1]['open'] > velas[i+1]['close'] else 'Doji'
-                            entrada3 ='Verde' if velas[i+2]['open'] < velas[i+2]['close'] else 'Vermelha' if velas[i+2]['open'] > velas[i+2]['close'] else 'Doji'
-
-                            cores = vela1,vela2,vela3
-
-                            if cores.count('Verde') > cores.count('Vermelha') and cores.count('Doji') == 0 : dir = 'Vermelha'
-                        
-                            if cores.count('Vermelha') > cores.count('Verde') and cores.count('Doji') == 0 : dir = 'Verde'
-
-                            if cores.count('Doji') >0:
-                                doji += 1
-                            else:
-                                if entrada1 == dir:
-                                    win +=1
-                                else:
-                                    if entrada2 == dir:
-                                        gale1 +=1
-                                    else:
-                                        if entrada3 == dir:
-                                            gale2 +=1
-                                        else:
-                                            if entrada3 == dir:
-                                                gale3 +=1
-                                            else:
-                                                loss +=1
-                    except:
-                        pass
-
-            total_entrada = win + gale1 + gale2 + loss
-            qnt_win = win
-            qnt_gale1 = win + gale1
-            qnt_gale2 = win + gale1 + gale2
-
-            win = round(qnt_win/(total_entrada)*100,2)
-            gale1 = round(qnt_gale1/(total_entrada)*100,2)
-            gale2 = round(qnt_gale2/(total_entrada)*100,2)
-
-            resultado.append(['MHI'] + [par]+ [win] +[gale1] + [gale2])
-
-    mhi()
-    mhi2()
-    torres()
-
-    if config['MARTINGALE']['usar_martingale'] == 'S':
-        if int(config['MARTINGALE']['niveis_martingale']) == 0:
-            linha = 2
-        if int(config['MARTINGALE']['niveis_martingale']) == 1:
-            linha = 3
-        if int(config['MARTINGALE']['niveis_martingale']) >= 2:
-            linha = 4
-    else:
-        linha = 2
-
-    lista_catalog = sorted(resultado, key = lambda x: x[linha], reverse = True)
-
-    return lista_catalog, linha
+if __name__ == "__main__":
+    catalogador = Catalogador()
+    catalogador.executar()
