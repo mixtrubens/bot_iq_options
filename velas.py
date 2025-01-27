@@ -85,7 +85,7 @@ def get_velas(iq, ativo, timeframe, tempo):
     # Obtenha as velas
     timeframe = 1     # Timeframe em minutos (exemplo: 1 para 1 minuto)
     num_velas = 120    # Quantidade de velas a busca
-    tempo_timestamp = tempo.timestamp()
+    tempo_timestamp = int(ajustar_horario_catalogacao().timestamp())
 
     # Exiba as velas
     
@@ -96,16 +96,18 @@ def get_velas(iq, ativo, timeframe, tempo):
     except Exception as e:
         # print(f"Erro ao obter as velas: {e}")
         return None
-    else:
-        # open_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(candles['from']))
-        formatted_candles = [
-            {   "cor": definir_cores_velas(candle),
-                "horario_candle": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(candle['from'])),
-                "close": candle["close"]}
-        for candle in candles
-    ]
     
-    return formatted_candles
+    if candles:
+        # open_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(candles['from']))
+        formatted_candles = []
+        for candle in candles:
+            formatted_candles.append({
+                "cor": definir_cores_velas(candle),
+                "horario_candle": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(tempo_timestamp)),
+                "close": candle["close"]
+            })
+            tempo_timestamp = tempo_timestamp - 60
+        return formatted_candles
 
 def ativos_online(ativos):
 # Processar cada ativo com timeout
@@ -119,7 +121,6 @@ def ativos_online(ativos):
         try:
             velas = get_velas(iq, ativo[0], timeframe, tempo)
             if velas is None:
-                print(f"Timeout: A função para {ativo} levou mais de 5 segundos e foi ignorada.\n")
                 list_tupla.remove(ativo)
                 continue
         except Exception as e:
