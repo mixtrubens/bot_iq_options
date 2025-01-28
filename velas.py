@@ -97,11 +97,15 @@ def get_velas(iq, ativo, timeframe, tempo):
         # print(f"Erro ao obter as velas: {e}")
         return None
     else:
-        # open_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(candles['from']))
         formatted_candles = [
             {   "cor": definir_cores_velas(candle),
                 "horario_candle": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(candle['from'])),
-                "close": candle["close"]}
+                "open": candle['open'],
+                "close": candle['close'],
+                "high": candle['max'],
+                "low": candle['min'],
+                "volume": candle['volume']
+                }
         for candle in candles
     ]
     
@@ -109,19 +113,10 @@ def get_velas(iq, ativo, timeframe, tempo):
 def ativos_online(ativos):
 # Processar cada ativo com timeout
     ativos_disponiveis = []
-    ativos_disponiveis_anomalos = []
-    
-    list_tupla = list(ativos)
     tempo = ajustar_horario_catalogacao()
-
     for index, ativo in enumerate(ativos):
-        velas_ativas = []
-        # print(f"({index}/{len(ativos)}) Processando ativo: {ativo}")
         try:
             velas = get_velas(iq, ativo[0], timeframe, tempo)
-            if velas is None:
-                list_tupla.remove(ativo)
-                continue
         except Exception as e:
             pass
             # print(f"Erro ao processar {ativo}\n")
