@@ -85,7 +85,7 @@ def get_velas(iq, ativo, timeframe, tempo):
     # Obtenha as velas
     timeframe = 1     # Timeframe em minutos (exemplo: 1 para 1 minuto)
     num_velas = 120    # Quantidade de velas a busca
-    tempo_timestamp = int(ajustar_horario_catalogacao().timestamp())
+    tempo_timestamp = tempo.timestamp()
 
     # Exiba as velas
     
@@ -96,22 +96,21 @@ def get_velas(iq, ativo, timeframe, tempo):
     except Exception as e:
         # print(f"Erro ao obter as velas: {e}")
         return None
-    
-    if candles:
+    else:
         # open_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(candles['from']))
-        formatted_candles = []
-        for candle in candles:
-            formatted_candles.append({
-                "cor": definir_cores_velas(candle),
-                "horario_candle": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(tempo_timestamp)),
-                "close": candle["close"]
-            })
-            tempo_timestamp = tempo_timestamp - 60
-        return formatted_candles
-
+        formatted_candles = [
+            {   "cor": definir_cores_velas(candle),
+                "horario_candle": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(candle['from'])),
+                "close": candle["close"]}
+        for candle in candles
+    ]
+    
+    return formatted_candles
 def ativos_online(ativos):
 # Processar cada ativo com timeout
     ativos_disponiveis = []
+    ativos_disponiveis_anomalos = []
+    
     list_tupla = list(ativos)
     tempo = ajustar_horario_catalogacao()
 
@@ -127,11 +126,12 @@ def ativos_online(ativos):
             pass
             # print(f"Erro ao processar {ativo}\n")
         else:
-            print(f">>> ({index}/{len(ativos)}) Ativo [{ativo}] processado com sucesso!")
-            ativos_disponiveis.append({ativo[0] : {'payout': ativo[1],
-                                                    'velas': velas,
-                                                    'resultado_total': [],
-                                                    'resultado_parcial': []}})
+            if velas[-1]['horario_candle'][0:13] == tempo.strftime('%Y-%m-%d %H:%M:%S')[0:13]:
+                print(f">>> ({index}/{len(ativos)}) Ativo [{ativo}] processado com sucesso!")
+                ativos_disponiveis.append({ativo[0] : {'payout': ativo[1],
+                                                        'velas': velas,
+                                                        'resultado_total': [],
+                                                        'resultado_parcial': []}})
     return {'velas_ativas': ativos_disponiveis}
 
 
