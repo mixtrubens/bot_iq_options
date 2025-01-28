@@ -42,17 +42,17 @@ class Estrategias:
             resultado_operacao = {'operacao': sinal,
                                   'horario_resultado': velas_agrupadas[i][0]['horario_candle'],
                                   'sinal': velas_agrupadas[i+1][0]['cor']}
-            return resultado_operacao, operacoes, doji, win, loss
+            return resultado_operacao, operacoes, doji, win, loss, martingale
         except IndexError:
-            return None
+            pass
 
-    def mhi_padrao(self, ativo, j, pares_abertos):
-        return self._processar_estrategia(ativo, j, pares_abertos, self.estrategia_mhi)
+    def mhi_padrao(self, ativo, j, pares_abertos, qnt_max_martingale):
+        return self._processar_estrategia(ativo, j, pares_abertos, qnt_max_martingale, self.estrategia_mhi)
 
-    def mhi_reverso(self, ativo, j, pares_abertos):
-        return self._processar_estrategia(ativo, j, pares_abertos, self.estrategia_mhi_reverso)
+    def mhi_reverso(self, ativo, j, pares_abertos, qnt_max_martingale):
+        return self._processar_estrategia(ativo, j, pares_abertos, qnt_max_martingale, self.estrategia_mhi_reverso)
 
-    def _processar_estrategia(self, ativo, j, pares_abertos, estrategia_func):
+    def _processar_estrategia(self, ativo, j, pares_abertos, qnt_max_martingale, estrategia_func):
         win = 0
         loss = 0
         doji = 0
@@ -73,7 +73,7 @@ class Estrategias:
                 velas_agrupadas, cor_predominante_grupo, operacoes, doji, win, loss, i, martingale
             )
             if resultado:
-                if resultado['operacao'] == 'Loss':
+                if resultado['operacao'] == 'Loss' and int(qnt_max_martingale) != 0:
                     martingale += 1
                 resultado['martingale'] = str(martingale)
 
@@ -81,7 +81,7 @@ class Estrategias:
                     loss = loss - (martingale - 1)
                     resultado_operacao.append(resultado)
                     martingale = 0
-                elif int(martingale) == 3:
+                elif int(martingale) == int(qnt_max_martingale):
                    martingale = 0
                    resultado_operacao.append(resultado)
                 else:
@@ -99,4 +99,4 @@ class Estrategias:
             })
             pares_abertos['velas_ativas'][j][key]['resultado_parcial'].append(resultado_operacao_parcial[0])
 
-        return sorted(resultado_operacao_parcial, key=lambda x: x['Win'], reverse=True)
+        return resultado_operacao_parcial
